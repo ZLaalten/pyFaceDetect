@@ -25,7 +25,7 @@ def list_image_encodes():
     return jsonify({'msg' : 'success', 'image_encodes' : classNames})
 
 @app.route("/img_store", methods=["POST"])
-def process_image():
+def store_image():
     file = request.files['image']
     # Read the image via file.stream
     img = Image.open(file.stream)
@@ -46,15 +46,32 @@ def encode_image():
         response = jsonify({'msg' : 'failed', 'reason' : str(e)})
     return response
 
-@app.route("/img_update", methods=["POST"])
-def update_image():
+@app.route("/img_process", methods=["POST"])
+def process_image():
     file = request.files['image']
-    fname = file.filename
-    # Read the image via file.stream
     img = Image.open(file.stream)
     img.save(image_path + file.filename)
+    try:
+        image = face_recognition.load_image_file(image_path  + file.filename)
+        imageEncode = face_recognition.face_encodings(image)[0]
+        classNames.append(file.filename)
+        imageEncodes.append(imageEncode)
+        updateEncodesToFile()
+        response = jsonify({'msg': 'success', 'size': [img.width, img.height], 'status':'encoded'})
+    except Exception as e:
+        os.remove(image_path + file.filename)
+        response = jsonify({'msg': 'failed', 'reason' : str(e)})
+    return response
+
+@app.route("/img_update", methods=["POST"])
+def update_image():
+    image_updated = False
+    file = request.files['image']
+    fname = file.filename
     for index,className in enumerate(classNames):
             if(className == fname):
+                img = Image.open(file.stream)
+                img.save(image_path + file.filename)
                 del classNames[index]
                 del imageEncodes[index]
                 classNames.append(fname)
@@ -62,23 +79,33 @@ def update_image():
                 imageEncode = face_recognition.face_encodings(image)[0]
                 imageEncodes.append(imageEncode)
                 updateEncodesToFile()
-    return jsonify({'msg': 'success', 'size': [img.width, img.height]})
+                image_updated = True
+    if(image_updated):
+        response = jsonify({'msg': 'success', 'size': [img.width, img.height]})
+    else:
+        response = jsonify({'msg': 'failed'})
+    return response
 
 @app.route("/img_delete", methods=["POST"])
 def delete_image():
+    deletion_successful = False
     try:
         fname = request.form.get("fname")
         if(fname==None):
             response = jsonify({'msg' : 'failed', 'reason' : 'fname must pe passed'})
         else:
             try:
-                os.remove(image_path + fname)
-                response = jsonify({'msg' : 'success', 'action' : fname + ' deleted'})
                 for index,className in enumerate(classNames):
                     if(className == fname):
                         del classNames[index]
                         del imageEncodes[index]
                         updateEncodesToFile()
+                        os.remove(image_path + fname)
+                        deletion_successful = True
+                if(not(deletion_successful)):
+                    response = jsonify({'msg' : 'failed', 'action' : fname + ' could not be deleted'})
+                else:
+                    response = jsonify({'msg' : 'success', 'action' : fname + ' deleted'})
             except Exception as e:
                 response = jsonify({'msg': 'failed', 'reason' : str(e)})
     except Exception as e:
