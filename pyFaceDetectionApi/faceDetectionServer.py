@@ -126,7 +126,7 @@ def detect_image():
             if(distance < distance_found):
                 distance_found = distance
                 detected_image = classNames[index]   
-    return jsonify({'msg' : 'success', 'detected_class' : detected_image.split('.')[0]})
+    return jsonify({'msg' : 'success', 'detected_class' : detected_image.split('.')[0], 'distance' : str(distance_found)})
 
 classNames = []
 imageEncodes = []
