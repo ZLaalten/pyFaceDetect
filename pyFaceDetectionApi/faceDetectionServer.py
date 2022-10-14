@@ -2,6 +2,7 @@ from crypt import methods
 import json
 from operator import methodcaller
 from pydoc import classname
+from turtle import distance
 from flask import Flask, request, jsonify
 from PIL import Image
 import face_recognition
@@ -114,13 +115,17 @@ def delete_image():
 
 @app.route("/img_detect", methods = ["POST"])
 def detect_image():
+    distance_found = 1.0
     file = request.files['image']
     unknownImage = face_recognition.load_image_file(file)
     unknownImageEncode = face_recognition.face_encodings(unknownImage)[0]
     detected_image = 'Nan.jpg'
     for index, imageEncode in enumerate(imageEncodes):
         if(face_recognition.compare_faces([unknownImageEncode], imageEncode)[0]== True ):
-            detected_image = classNames[index]   
+            distance = face_recognition.face_distance([unknownImageEncode], imageEncode)
+            if(distance < distance_found):
+                distance_found = distance
+                detected_image = classNames[index]   
     return jsonify({'msg' : 'success', 'detected_class' : detected_image.split('.')[0]})
 
 classNames = []
