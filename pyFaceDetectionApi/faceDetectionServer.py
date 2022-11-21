@@ -113,6 +113,32 @@ def delete_image():
         response = jsonify({'msg' : 'failed', 'reason' : str(e)})
     return response
 
+@app.route("/img_delete_all", methods=["POST"])
+def delete_all_images():
+    global classNames, imageEncodes
+    deletion_successful = False
+    key = request.form.get("key")
+    if(key==None):
+            response = jsonify({'msg' : 'failed', 'reason' : 'key must pe passed'})
+    elif(key!="Fret@091"):
+        response = jsonify({'msg' : 'failed', 'reason' : 'incorrect key'})
+    else:
+        try:
+            classNames = []
+            imageEncodes = []
+            updateEncodesToFile()
+            images = os.listdir(image_path)
+            for fname in images:
+                os.remove(image_path + fname)
+            deletion_successful = True
+            if(not(deletion_successful)):
+                response = jsonify({'msg' : 'failed', 'action' : 'Files could not be deleted'})
+            else:
+                response = jsonify({'msg' : 'success', 'action' : 'All files successfully deleted'})
+        except Exception as e:
+            response = jsonify({'msg' : 'failed', 'reason' : str(e)})
+    return response
+
 @app.route("/img_detect", methods = ["POST"])
 def detect_image():
     distance_found = 1.0
