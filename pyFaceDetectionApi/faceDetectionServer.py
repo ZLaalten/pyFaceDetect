@@ -10,6 +10,7 @@ import pickle
 import os
 
 image_path = './images/'
+image_encoder_path = './encoder/'
 
 app = Flask(__name__)
 
@@ -51,17 +52,24 @@ def encode_image():
 def process_image():
     file = request.files['image']
     img = Image.open(file.stream)
-    img.save(image_path + file.filename)
+    community = request.form.get("community")
+    if not os.path.exists(image_path + community):
+        os.makedirs(image_path + community)
+    if not os.path.exists(image_encoder_path + community):
+        os.makedirs(image_encoder_path + community)
+    img.save(image_path + community + '/'+ file.filename)
     try:
-        image = face_recognition.load_image_file(image_path  + file.filename)
+        image = face_recognition.load_image_file(image_path + community + '/'+ file.filename)
         imageEncode = face_recognition.face_encodings(image)[0]
         classNames.append(file.filename)
         imageEncodes.append(imageEncode)
-        updateEncodesToFile()
+        updateOrCreateEncodesToFile(community)
         response = jsonify({'msg': 'success', 'size': [img.width, img.height], 'status':'encoded'})
     except Exception as e:
-        os.remove(image_path + file.filename)
+        os.remove(image_path + community + '/'+ file.filename)
+        print(e)
         response = jsonify({'msg': 'failed', 'reason' : str(e)})
+    updateCommunityEncodesFromFile()
     return response
 
 @app.route("/img_update", methods=["POST"])
@@ -143,23 +151,30 @@ def delete_all_images():
 def detect_image():
     distance_found = 1.0
     file = request.files['image']
+    community = request.form.get("community")
     unknownImage = face_recognition.load_image_file(file)
     try:
         unknownImageEncode = face_recognition.face_encodings(unknownImage)[0]
         detected_image = 'Nan.jpg'
-        for index, imageEncode in enumerate(imageEncodes):
+        imageEncodeList = imageEncodesDicts[community]
+        classNameList = classNamesDicts[community]
+        for index, imageEncode in enumerate(imageEncodeList):
             if(face_recognition.compare_faces([unknownImageEncode], imageEncode)[0]== True ):
                 distance = face_recognition.face_distance([unknownImageEncode], imageEncode)
                 if(distance < distance_found):
                     distance_found = distance
-                    detected_image = classNames[index]   
+                    detected_image = classNameList[index]   
         response =  jsonify({'msg' : 'success', 'detected_class' : detected_image.split('.')[0], 'distance' : str(distance_found)})
     except Exception as e:
+        print(e)
         response = jsonify({'msg' : 'failed', 'reason' : 'No face found in image'})
     return response
     
 classNames = []
 imageEncodes = []
+
+classNamesDicts = {}
+imageEncodesDicts = {}
 
 def updateEncodesFromFile():
     global imageEncodes, classNames
@@ -174,14 +189,45 @@ def updateEncodesFromFile():
     except:
         imageEncodes = []
 
-def updateEncodesToFile():
-    global imageEncodes, classNames
-    with open('imageEncodes.pkl', 'wb') as f1:
-        pickle.dump(imageEncodes, f1)
-    with open('classNames.pkl', 'wb') as f2:
-        pickle.dump(classNames, f2)    
 
+def updateCommunityEncodesFromFile():
+    global imageEncodesDicts, classNamesDicts
+    try: 
+        for community in os.listdir(image_encoder_path):
+            try:
+                with open(image_encoder_path + community + '/classNames.pkl', 'rb') as f1:
+                    classNamesDicts[community] = pickle.load(f1)
+            except:
+                classNamesDicts[community] = []
+            try:    
+                with open(image_encoder_path + community + '/imageEncodes.pkl', 'rb') as f2:
+                    imageEncodesDicts[community] = pickle.load(f2)
+            except:
+                imageEncodesDicts[community] = []
+    except Exception as e:
+        print(e)
 
+# def updateEncodesToFile():
+#     global imageEncodes, classNames
+#     with open('imageEncodes.pkl', 'wb') as f1:
+#         pickle.dump(imageEncodes, f1)
+#     with open('classNames.pkl', 'wb') as f2:
+#         pickle.dump(classNames, f2)    
+
+def updateOrCreateEncodesToFile(community):
+    global imageEncodesDicts, classNamesDicts
+    if not os.path.exists(image_encoder_path + community):
+        os.makedirs(image_encoder_path + community)
+
+    try:
+
+        with open(image_encoder_path + community + '/imageEncodes.pkl', 'wb') as f1:
+            pickle.dump(imageEncodes, f1)
+        with open(image_encoder_path + community + '/classNames.pkl', 'wb') as f2:
+            pickle.dump(classNames, f2) 
+    except Exception as e:
+        print("error found is " + e)
 if __name__ == "__main__":
     updateEncodesFromFile()
+    updateCommunityEncodesFromFile()
     app.run(host='0.0.0.0')
