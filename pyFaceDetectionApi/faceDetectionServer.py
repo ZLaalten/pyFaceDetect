@@ -48,6 +48,25 @@ def encode_image():
         response = jsonify({'msg' : 'failed', 'reason' : str(e)})
     return response
 
+@app.route("/img_validate", methods=["POST"])
+def validate_image():
+    file = request.files['image']
+    image = face_recognition.load_image_file(file)
+    try:
+        face_locations = face_recognition.face_locations(image)
+    except Exception as e:
+        face_locations = []
+    if(len(face_locations)==1):
+        response = jsonify({'msg' : 'success'})
+    elif(len(face_locations)==0):
+        response = jsonify({'msg' : 'failed', 'reason' : "No Face found"})
+    else:
+        response = jsonify({'msg' : 'failed', 'reason' : str(len(face_locations)) + " faces found"})
+    return response
+    
+
+
+
 @app.route("/img_process", methods=["POST"])
 def process_image():
     file = request.files['image']
@@ -207,26 +226,26 @@ def updateCommunityEncodesFromFile():
     except Exception as e:
         print(e)
 
-# def updateEncodesToFile():
-#     global imageEncodes, classNames
-#     with open('imageEncodes.pkl', 'wb') as f1:
-#         pickle.dump(imageEncodes, f1)
-#     with open('classNames.pkl', 'wb') as f2:
-#         pickle.dump(classNames, f2)    
+def updateEncodesToFile():
+    global imageEncodes, classNames
+    with open('imageEncodes.pkl', 'wb') as f1:
+        pickle.dump(imageEncodes, f1)
+    with open('classNames.pkl', 'wb') as f2:
+        pickle.dump(classNames, f2)    
 
 def updateOrCreateEncodesToFile(community):
     global imageEncodesDicts, classNamesDicts
     if not os.path.exists(image_encoder_path + community):
         os.makedirs(image_encoder_path + community)
-
     try:
-
         with open(image_encoder_path + community + '/imageEncodes.pkl', 'wb') as f1:
             pickle.dump(imageEncodes, f1)
         with open(image_encoder_path + community + '/classNames.pkl', 'wb') as f2:
             pickle.dump(classNames, f2) 
     except Exception as e:
         print("error found is " + e)
+
+
 if __name__ == "__main__":
     updateEncodesFromFile()
     updateCommunityEncodesFromFile()
